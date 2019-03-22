@@ -4,7 +4,7 @@ import (
 	"os"
 	"fmt"
 	"flag"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 )
 
 // Report all errors to stdout.
@@ -74,12 +74,22 @@ func put(conn redis.Conn, queue <-chan map[string]string) {
 func main() {
 	from := flag.String("from", "", "example: redis://127.0.0.1:6379/0")
 	to := flag.String("to", "", "example: redis://127.0.0.1:6379/1")
+	from_pwd := flag.String("from_pwd", "", "from redis password")
+	to_pwd := flag.String("to_pwd", "", "to redis password")
 	flag.Parse()
 
 	source, err := redis.DialURL(*from)
 	handle(err)
+	if *from_pwd != "" {
+		_, err := source.Do("AUTH", *from_pwd)
+		handle(err)
+	}
 	destination, err := redis.DialURL(*to)
 	handle(err)
+	if *to_pwd != "" {
+		_, err := source.Do("AUTH", *to_pwd)
+		handle(err)
+	}
 	defer source.Close()
 	defer destination.Close()
 

@@ -15,6 +15,24 @@ func handle(err error) {
 	}
 }
 
+func connection(url string, db string, password string) (redis.Conn, error) {
+	c, err := redis.Dial("tcp", url)
+    if err != nil {
+		return nil, err
+	}
+	if password != "" {
+		if _, err := c.Do("AUTH", password); err != nil {
+			c.Close()
+			return nil, err
+		}
+	}
+	if _, err := c.Do("SELECT", db); err != nil {
+		c.Close()
+		return nil, err
+	}
+	return c, nil
+}
+
 // Scan and queue source keys.
 func get(conn redis.Conn, queue chan<- map[string]string) {
 	var (
@@ -72,24 +90,18 @@ func put(conn redis.Conn, queue <-chan map[string]string) {
 }
 
 func main() {
-	from := flag.String("from", "", "example: redis://127.0.0.1:6379/0")
-	to := flag.String("to", "", "example: redis://127.0.0.1:6379/1")
+	from := flag.String("from", "", "example: 127.0.0.1:6379")
+	to := flag.String("to", "", "example: 127.0.0.1:6379")
 	from_pwd := flag.String("from_pwd", "", "from redis password")
 	to_pwd := flag.String("to_pwd", "", "to redis password")
+	from_db := flag.String("from_db", "", "from db")
+	to_db := flag.String("to_db", "", "to db")
 	flag.Parse()
 
-	source, err := redis.DialURL(*from)
+	source, err := connection(*from, *from_db, *from_pwd)
 	handle(err)
-	if *from_pwd != "" {
-		_, err := source.Do("AUTH", *from_pwd)
-		handle(err)
-	}
-	destination, err := redis.DialURL(*to)
+	destination, err := connection(*to, *to_db, *to_pwd)
 	handle(err)
-	if *to_pwd != "" {
-		_, err := source.Do("AUTH", *to_pwd)
-		handle(err)
-	}
 	defer source.Close()
 	defer destination.Close()
 
